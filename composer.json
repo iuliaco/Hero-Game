@@ -1,0 +1,11 @@
+{
+    "name": "rtvmbpro/hero-game",
+    "autoload": {
+        "psr-4": {
+            "Game\\" : "/",
+            "Game\\Interfaces\\" : "interface/",
+            "Game\\Classes\\" : "class/"
+        }
+    },
+    "require": {}
+}
