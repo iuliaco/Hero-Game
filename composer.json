@@ -4,7 +4,8 @@
         "psr-4": {
             "Game\\" : "/",
             "Game\\Interfaces\\" : "interface/",
-            "Game\\Classes\\" : "class/"
+            "Game\\Classes\\" : "class/",
+            "Game\\Helpers\\" : "helper/"
         }
     },
     "require": {}

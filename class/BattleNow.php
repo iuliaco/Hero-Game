@@ -1,26 +1,27 @@
 <?php
+
 namespace Game\Classes;
 
 use Game\Interfaces\BattleInterface;
+use Game\Interfaces\SkillInterface;
 
 class BattleNow implements BattleInterface
 {
     public $hero;
     public $enemy;
     public $actualPlayer;
-    public $heroSkills;
-    public $enemySkills;
     public $winner;
     public $game;
+    public $log;
 
     public function decideStart()
     {
-        if ($this->hero->get_speed() > $this->enemy->get_speed()) {
+        if ($this->hero->getSpeed() > $this->enemy->getSpeed()) {
             return $this->hero;
-        } elseif ($this->hero->get_speed() < $this->enemy->get_speed()) {
+        } elseif ($this->hero->getSpeed() < $this->enemy->getSpeed()) {
             return $this->enemy;
         } else {
-            if ($this->hero->get_lucky() >= $this->enemy->get_lucky()) {
+            if ($this->hero->getLucky() >= $this->enemy->getLucky()) {
                 return $this->hero;
             } else {
                 return $this->enemy;
@@ -41,59 +42,85 @@ class BattleNow implements BattleInterface
     {
         $this->hero = $hero;
         $this->enemy = $enemy;
-        $this->heroSkills = array();
-        $this->enemySkills = array();
-        $this->addSkill($this->hero, "attack", "rapid-strike", 10);
-        $this->addSkill($this->hero, "defence", "magic-shield", 20);
-        $this->addSkill($this->hero, "defence", "lucky", 10);
-        $this->addSkill($this->enemy, "defence", "lucky", 20);
         $this->game = 1;
         $this->actualPlayer = $this->decideStart();
     }
 
-    public function checkProp($attacker, $damage, $type)
+    public function checkDead()
     {
-
+        if ($this->hero->getHealth() <= 0) {
+            return 1;
+        } else if ($this->enemy->getHealth() <= 0) {
+            return 1;
+        }
+        return 0;
     }
 
-    public function getDamage($attacker)
+    public function getDamage(Character $attacker, Character $defender)
     {
+        $damage = $attacker->getStrength() - $defender->getDefence();
+        return $damage;
+    }
+
+    public function applyDamage(Character $defender, $damage)
+    {
+        $health = $defender->getHealth() - $damage;
+        $defender->setHealth($health);
+    }
+
+    public function applySkills(Character $attacker, Character $defender, $damage, $log)
+    {
+        foreach ($attacker->getSkills() as $skill) {
+            if ($skill->type === "attack") {
+                if($skill->currentDuration !== 0) {
+                    $damage = $skill->use($damage);
+                    $skill->currentDuration--;
+                    $log->skillUsedFromBeforeAttack($attacker, $skill, $damage, $skill->currentDuration);
+                } elseif ($attacker->triggerSkill($skill->procent)) {
+                    $skill->currentDuration = $skill->duration;
+                    $damage = $skill->use($damage);
+                    $log->skillUsedAttack($attacker, $skill, $damage, $skill->currentDuration);
+                    $skill->currentDuration--;
+                }
+            }
+        }
+        foreach ($defender->getSkills() as $skill) {
+            if ($skill->type === "defence") {
+                if($skill->currentDuration !== 0) {
+                    $damage = $skill->use($damage);
+                    $skill->currentDuration--;
+                    $log->skillUsedFromBeforeDefend($defender, $skill, $damage, $skill->currentDuration);
+                } elseif ($defender->triggerSkill($skill->procent)) {
+                    $skill->currentDuration = $skill->duration;
+                    $damage = $skill->use($damage);
+                    $log->skillUsedDefend($defender, $skill, $damage, $skill->currentDuration);
+                    $skill->currentDuration--;
+                }
+            }
+        }
+        $log->resultRound($attacker, $defender, $damage);
+        $this->applyDamage($defender, $damage);
 
     }
 
     public function battle()
     {
-        echo "battle";
-    }
+        $log = new WebLog();
+        $log->startGame($this->actualPlayer);
+        for ($i = 0; $i < 20; $i++) {
+            $log->nextRound($this->actualPlayer, $i + 1);
+            $damage = $this->getDamage($this->actualPlayer, $this->nextPlayer());
+            $this->applySkills($this->actualPlayer, $this->nextPlayer(), $damage, $log);
+            $log->statistics($this->hero, $this->enemy);
 
-    public function addSkill($character, $type, $name, $percent)
-    {
-        if ($this->hero === $character) {
-            array_push($this->heroSkills, array(
-                "type" => $type,
-                "name" => $name,
-                "percent" => $percent,
-            ));
-        } else {
-            array_push($this->enemySkills, array(
-                "name" => $name,
-                "percent" => $percent,
-                "type" => $type
-            ));
+            if ($this->checkDead()) {
+                $log->endGame($this->actualPlayer);
+                return 0;
+            }
+            $this->actualPlayer = $this->nextPlayer();
         }
+        $log->endRounds($this->hero, $this->enemy);
 
-    }
-
-    public function showSkills()
-    {
-        echo '<pre>';
-        print_r($this->heroSkills);
-        echo '</pre>';
-
-    }
-
-    public function endBattle()
-    {
-        echo "end";
     }
 }
+
